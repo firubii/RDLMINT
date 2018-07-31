@@ -1,0 +1,30 @@
+[Mint XBIN Data]
+0x0 - XBIN
+0x8 - Filesize
+0x0C - 0x3A4 (always the same)
+0x10 - 0x0002000 (always the same)
+0x14 - File Name Offset 
+0x18 - SDATA Start Offset (always 0x28)
+0x1C - XREFs Start Offset (varies, always after sdata)
+---
+XREFs Start Offset - XREFs Count
+Offsets to XREF Strings are in the bytes specified by Count.
+XREF String address starts with XREF string size followed by xref string itself.
+---
+0x20 - File Class Start Offset (address is always 0x1)
+0x24 - 0x00000000
+0x28 - SDATA Size
+---
+Proceed after File Class Start Offset (0x1).
+0x0 - File Name Class Offset
+0x4 - File Name Class Address
+0x8 - Unknown Offset (always 0x0)
+0x10 - Number of Classes Offset
+---
+Proceed after Number of Classes.
+0x0 - Class 1 Offset
+0x4 - Class 2 Offset
+0x8 - Class 3 Offset
+Repeat based on Number of Classes.
+Each offset leads to another offset which specifies what class to link the following data to.
+Directly after that offset is the starting offset for the class script.
