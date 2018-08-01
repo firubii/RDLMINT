@@ -15,7 +15,6 @@ namespace RDLMINT
         {
             string filepath;
             byte[] mintArchive;
-            args = new string[] { "-x", @"D:\Game Dumps\Kirby's Return to Dreamland\mint\Archive.bin" };
             if (args.Length > 0)
             {
                 if (args[0] == "-x")
