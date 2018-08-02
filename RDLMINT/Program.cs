@@ -205,14 +205,15 @@ namespace RDLMINT
                             }
                             else if (mintScript[b] == 0x03)
                             {
-                                //uint sdataOffset = BitConverter.ToUInt32(new byte[] { 0x00, mintScript[b + 3], mintScript[b + 2], mintScript[b + 1] }, 0);
-                                scriptDecomp.Add("            load r" + mintScript[b + 1].ToString("X2") + ", 0x" + ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), mintScript[b + 3])).ToString("X8"));
+                                uint sdataOffset = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
+                                scriptDecomp.Add("            load r" + mintScript[b + 1].ToString("X2") + ", 0x" + ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), (int)sdataOffset)).ToString("X8"));
                             }
                             else if (mintScript[b] == 0x04)
                             {
+                                uint sdataOffset = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
                                 string sdataString = "";
                                 List<byte> stringBytes = new List<byte>();
-                                for (int s = mintScript[b + 3]; s < sdata.Count; s++)
+                                for (int s = (int)sdataOffset; s < sdata.Count; s++)
                                 {
                                     if (sdata[s] != 0x00)
                                     {
