@@ -15,36 +15,63 @@ namespace RDLMINT
         {
             string filepath;
             byte[] mintArchive;
+            //args = new string[] { "-x", "Archive.bin" };
             if (args.Length > 0)
             {
                 if (args[0] == "-x")
                 {
                     if (args.Length > 1 && File.Exists(args[1]))
                     {
-                        filepath = args[1];
-                        mintArchive = File.ReadAllBytes(filepath);
-                        if (Encoding.UTF8.GetString(mintArchive, 0, 4) == "XBIN")
+                        if (args.Contains("-f"))
                         {
-                            if (!Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\"))
+                            filepath = args[1];
+                            byte[] mintScript = File.ReadAllBytes(filepath);
+                            if (Encoding.UTF8.GetString(mintScript, 0, 4) == "XBIN")
                             {
-                                Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\MINT\");
+                                if (!Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\"))
+                                {
+                                    Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\MINT\");
+                                }
+                                Console.WriteLine("Decompiling script " + filepath);
+                                DecompileScript(mintScript, filepath.Split('\\').Last().Replace(".bin", ""));
+                                Console.WriteLine("Done!");
                             }
-                            uint scriptCount = ReverseBytes(BitConverter.ToUInt32(mintArchive, 0x10));
-                            Console.WriteLine("Found " + scriptCount + " scripts");
-                            for (int i = 0; i < scriptCount; i++)
+                            else
                             {
-                                uint fileOffset = ReverseBytes(BitConverter.ToUInt32(mintArchive, 0x14 + (i * 0x8) + 0x4));
-                                uint stringOffset = ReverseBytes(BitConverter.ToUInt32(mintArchive, 0x14 + (i * 0x8))) + 0x4;
-                                uint stringLength = ReverseBytes(BitConverter.ToUInt32(mintArchive, (int)(stringOffset - 0x4)));
-                                string scriptName = Encoding.UTF8.GetString(mintArchive, (int)stringOffset, (int)stringLength);
-                                Console.WriteLine("Dumping script " + scriptName);
-                                List<byte> script = new List<byte>();
-                                uint scriptLength = ReverseBytes(BitConverter.ToUInt32(mintArchive, (int)fileOffset + 0x8));
-                                script.AddRange(mintArchive.Skip((int)fileOffset).Take((int)scriptLength));
-                                File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\MINT\" + scriptName + ".bin", script.ToArray());
-                                DecompileScript(script.ToArray(), scriptName);
+                                Console.WriteLine("Error: Provided file is not a MINT script");
                             }
-                            Console.WriteLine("Finished dumping scripts");
+                        }
+                        else
+                        {
+                            filepath = args[1];
+                            mintArchive = File.ReadAllBytes(filepath);
+                            if (Encoding.UTF8.GetString(mintArchive, 0, 4) == "XBIN")
+                            {
+                                if (!Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\"))
+                                {
+                                    Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\MINT\");
+                                }
+                                uint scriptCount = ReverseBytes(BitConverter.ToUInt32(mintArchive, 0x10));
+                                Console.WriteLine("Found " + scriptCount + " scripts");
+                                for (int i = 0; i < scriptCount; i++)
+                                {
+                                    uint fileOffset = ReverseBytes(BitConverter.ToUInt32(mintArchive, 0x14 + (i * 0x8) + 0x4));
+                                    uint stringOffset = ReverseBytes(BitConverter.ToUInt32(mintArchive, 0x14 + (i * 0x8))) + 0x4;
+                                    uint stringLength = ReverseBytes(BitConverter.ToUInt32(mintArchive, (int)(stringOffset - 0x4)));
+                                    string scriptName = Encoding.UTF8.GetString(mintArchive, (int)stringOffset, (int)stringLength);
+                                    Console.WriteLine("Dumping script " + scriptName);
+                                    List<byte> script = new List<byte>();
+                                    uint scriptLength = ReverseBytes(BitConverter.ToUInt32(mintArchive, (int)fileOffset + 0x8));
+                                    script.AddRange(mintArchive.Skip((int)fileOffset).Take((int)scriptLength));
+                                    File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\MINT\" + scriptName + ".bin", script.ToArray());
+                                    DecompileScript(script.ToArray(), scriptName);
+                                }
+                                Console.WriteLine("Finished dumping scripts");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Error: Provided file is not a MINT archive");
+                            }
                         }
                     }
                     else
@@ -141,7 +168,11 @@ namespace RDLMINT
                     uint varNameOffset = ReverseBytes(BitConverter.ToUInt32(mintScript, (int)varOffset));
                     uint varNameLength = ReverseBytes(BitConverter.ToUInt32(mintScript, (int)varNameOffset));
                     string varName = Encoding.UTF8.GetString(mintScript, (int)varNameOffset + 0x4, (int)varNameLength);
-                    scriptDecomp.AddRange(new string[] { "        var " + varName });
+                    
+                    uint varTypeNameOffset = ReverseBytes(BitConverter.ToUInt32(mintScript, (int)varOffset + 0x4));
+                    uint varTypeNameLength = ReverseBytes(BitConverter.ToUInt32(mintScript, (int)varTypeNameOffset));
+                    string varTypeName = Encoding.UTF8.GetString(mintScript, (int)varTypeNameOffset + 0x4, (int)varTypeNameLength);
+                    scriptDecomp.AddRange(new string[] { "        " + varTypeName + " " + varName });
                 }
 
                 //read methods
@@ -163,15 +194,16 @@ namespace RDLMINT
                             //opcodes
                             if (mintScript[b] == 0x01)
                             {
-                                scriptDecomp.Add("            mov r" + mintScript[b + 1].ToString("X2") + ", true");
+                                scriptDecomp.Add("            setTrue r" + mintScript[b + 1].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x02)
                             {
-                                scriptDecomp.Add("            mov r" + mintScript[b + 1].ToString("X2") + ", false");
+                                scriptDecomp.Add("            setFalse r" + mintScript[b + 1].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x03)
                             {
-                                scriptDecomp.Add("            ld r" + mintScript[b + 1].ToString("X2") + ", 0x" + ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), mintScript[b + 3])).ToString("X8"));
+                                //uint sdataOffset = BitConverter.ToUInt32(new byte[] { 0x00, mintScript[b + 3], mintScript[b + 2], mintScript[b + 1] }, 0);
+                                scriptDecomp.Add("            load r" + mintScript[b + 1].ToString("X2") + ", 0x" + ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), mintScript[b + 3])).ToString("X8"));
                             }
                             else if (mintScript[b] == 0x04)
                             {
@@ -189,42 +221,42 @@ namespace RDLMINT
                                         break;
                                     }
                                 }
-                                scriptDecomp.Add("            ldstr r" + mintScript[b + 1].ToString("X2") + ", " + sdataString);
+                                scriptDecomp.Add("            loadString r" + mintScript[b + 1].ToString("X2") + ", " + sdataString);
                             }
                             else if (mintScript[b] == 0x05)
                             {
-                                scriptDecomp.Add("            mov r" + mintScript[b + 1].ToString("X2") + ", " + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            moveRegister r" + mintScript[b + 1].ToString("X2") + ", " + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x06)
                             {
-                                scriptDecomp.Add("            mov r" + mintScript[b + 1].ToString("X2") + ", <res>");
+                                scriptDecomp.Add("            moveResult r" + mintScript[b + 1].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x07)
                             {
-                                scriptDecomp.Add("            argset [" + mintScript[b + 1].ToString("X2") + "] r" + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            setArg [" + mintScript[b + 1].ToString("X2") + "] r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x09)
                             {
                                 uint xrefId = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
-                                scriptDecomp.Add("            getstatic r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
+                                scriptDecomp.Add("            getStatic r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
                             }
                             else if (mintScript[b] == 0x0A)
                             {
-                                scriptDecomp.Add("            getderef r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            loadDeref r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x0B)
                             {
                                 uint xrefId = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
-                                scriptDecomp.Add("            sizeof r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
+                                scriptDecomp.Add("            sizeOf r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
                             }
                             else if (mintScript[b] == 0x0C)
                             {
-                                scriptDecomp.Add("            putderef r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            storeDeref r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x0D)
                             {
                                 uint xrefId = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
-                                scriptDecomp.Add("            putstatic r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
+                                scriptDecomp.Add("            storeStatic r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
                             }
                             else if (mintScript[b] == 0x0E)
                             {
@@ -252,6 +284,10 @@ namespace RDLMINT
                             }
                             else if (mintScript[b] == 0x14)
                             {
+                                scriptDecomp.Add("            deci r" + mintScript[b + 1].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x15)
+                            {
                                 scriptDecomp.Add("            negi r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x16)
@@ -270,41 +306,89 @@ namespace RDLMINT
                             {
                                 scriptDecomp.Add("            divf r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
+                            else if (mintScript[b] == 0x1A)
+                            {
+                                scriptDecomp.Add("            incf r" + mintScript[b + 1].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x1B)
+                            {
+                                scriptDecomp.Add("            decf r" + mintScript[b + 1].ToString("X2"));
+                            }
                             else if (mintScript[b] == 0x1C)
                             {
                                 scriptDecomp.Add("            negf r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x1D)
                             {
-                                scriptDecomp.Add("            intless r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                                scriptDecomp.Add("            intLess r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x1E)
                             {
-                                scriptDecomp.Add("            intnot r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                                scriptDecomp.Add("            intLessOrEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x1F)
                             {
-                                scriptDecomp.Add("            intequal r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                                scriptDecomp.Add("            intEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x20)
+                            {
+                                scriptDecomp.Add("            intNotEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x21)
                             {
-                                scriptDecomp.Add("            floatless r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                                scriptDecomp.Add("            floatLess r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x22)
+                            {
+                                scriptDecomp.Add("            floatLessOrEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x23)
+                            {
+                                scriptDecomp.Add("            floatEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x24)
+                            {
+                                scriptDecomp.Add("            floatNotEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x25)
+                            {
+                                scriptDecomp.Add("            cmpLess r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x25)
+                            {
+                                scriptDecomp.Add("            cmpLessOrEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x27)
                             {
-                                scriptDecomp.Add("            booland r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                                scriptDecomp.Add("            boolEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x28)
                             {
-                                scriptDecomp.Add("            boolnot r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                                scriptDecomp.Add("            boolNotEqual r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x29)
+                            {
+                                scriptDecomp.Add("            bitAnd r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x2A)
                             {
-                                scriptDecomp.Add("            bitor r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                                scriptDecomp.Add("            bitOr r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x2B)
+                            {
+                                scriptDecomp.Add("            bitXor r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x2D)
                             {
                                 scriptDecomp.Add("            not r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x2E)
+                            {
+                                scriptDecomp.Add("            slli r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x2F)
+                            {
+                                scriptDecomp.Add("            slr r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x30)
                             {
@@ -312,24 +396,24 @@ namespace RDLMINT
                             }
                             else if (mintScript[b] == 0x31)
                             {
-                                scriptDecomp.Add("            jumpif " + (int)mintScript[b + 3] + ", r" + mintScript[b + 1].ToString("X2"));
+                                scriptDecomp.Add("            jumpIfEqual " + (int)mintScript[b + 3] + ", r" + mintScript[b + 1].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x32)
                             {
-                                scriptDecomp.Add("            jumpnot " + (int)mintScript[b + 3] + ", r" + mintScript[b + 1].ToString("X2"));
+                                scriptDecomp.Add("            jumpIfNotEqual " + (int)mintScript[b + 3] + ", r" + mintScript[b + 1].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x33)
                             {
-                                scriptDecomp.Add("            decl " + mintScript[b + 1].ToString("X2") + ", " + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            declare " + mintScript[b + 1].ToString("X2") + ", " + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x34)
                             {
-                                scriptDecomp.Add("            ret");
+                                scriptDecomp.Add("            return");
                                 break;
                             }
                             else if (mintScript[b] == 0x35)
                             {
-                                scriptDecomp.Add("            ret r" + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            returnVal r" + mintScript[b + 2].ToString("X2"));
                                 break;
                             }
                             else if (mintScript[b] == 0x36)
@@ -337,14 +421,26 @@ namespace RDLMINT
                                 uint xrefId = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
                                 scriptDecomp.Add("            call " + xref[(int)xrefId]);
                             }
+                            else if (mintScript[b] == 0x37)
+                            {
+                                scriptDecomp.Add("            yield r" + mintScript[b + 1].ToString("X2"));
+                            }
                             else if (mintScript[b] == 0x38)
                             {
                                 scriptDecomp.Add("            copy r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
+                            }
+                            else if (mintScript[b] == 0x39)
+                            {
+                                scriptDecomp.Add("            zero r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2") + ", r" + mintScript[b + 3].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x3A)
                             {
                                 uint xrefId = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
                                 scriptDecomp.Add("            new r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
+                            }
+                            else if (mintScript[b] == 0x3B)
+                            {
+                                scriptDecomp.Add("            sppshz r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x3C)
                             {
@@ -354,23 +450,23 @@ namespace RDLMINT
                             else if (mintScript[b] == 0x3D)
                             {
                                 uint xrefId = (uint)BitConverter.ToUInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
-                                scriptDecomp.Add("            getfield r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
+                                scriptDecomp.Add("            getField r" + mintScript[b + 1].ToString("X2") + ", " + xref[(int)xrefId]);
                             }
                             else if (mintScript[b] == 0x3E)
                             {
-                                scriptDecomp.Add("            mkarray r" + mintScript[b + 1].ToString("X2"));
+                                scriptDecomp.Add("            makeArray r" + mintScript[b + 1].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x3F)
                             {
-                                scriptDecomp.Add("            getindex r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            arrayIndex r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x40)
                             {
-                                scriptDecomp.Add("            arraylen r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
+                                scriptDecomp.Add("            arrayLength r" + mintScript[b + 1].ToString("X2") + ", r" + mintScript[b + 2].ToString("X2"));
                             }
                             else if (mintScript[b] == 0x41)
                             {
-                                scriptDecomp.Add("            delarray r" + mintScript[b + 1].ToString("X2"));
+                                scriptDecomp.Add("            deleteArray r" + mintScript[b + 1].ToString("X2"));
                             }
                         }
                         catch
