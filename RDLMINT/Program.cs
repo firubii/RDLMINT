@@ -85,21 +85,24 @@ namespace RDLMINT
                 }
                 else if (args[0] == "-h")
                 {
-                    Console.WriteLine("Usage: RDLMINT.exe <option>");
-                    Console.WriteLine("Options:");
-                    Console.WriteLine("    -x <file>:   Extract and decompile a MINT Archive");
-                    Console.WriteLine("    -r <folder>: Repack and compile a MINT Archive from a folder");
-                    Console.WriteLine("    -h:          Show this message");
+                    Help();
                 }
             }
             else
             {
-                Console.WriteLine("Usage: RDLMINT.exe <option>");
-                Console.WriteLine("Options:");
-                Console.WriteLine("    -x <file>:   Extract and decompile a MINT Archive");
-                Console.WriteLine("    -r <folder>: Repack and compile a MINT Archive from a folder");
-                Console.WriteLine("    -h:          Show this message");
+                Help();
             }
+        }
+
+        public static void Help()
+        {
+            Console.WriteLine("Usage: RDLMINT.exe <action> [options]");
+            Console.WriteLine("Actions:");
+            Console.WriteLine("    -x <file>:   Extract and decompile a MINT Archive");
+            Console.WriteLine("    -r <folder>: Repack and compile a MINT Archive from a folder");
+            Console.WriteLine("    -h:          Show this message");
+            Console.WriteLine("\nOptions:");
+            Console.WriteLine("    -f:   Decompiles the provided MINT script file");
         }
 
         public static void DecompileScript(byte[] mintScript, string fileName)
