@@ -981,11 +981,13 @@ namespace RDLMINT
                     classNameOffsets.Add((uint)scriptBytes.Count);
                     scriptBytes.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
                     scriptBytes.AddRange(BitConverter.GetBytes(ReverseBytes((uint)scriptBytes.Count + 0x8)));
-                    scriptBytes.AddRange(BitConverter.GetBytes(ReverseBytes((uint)scriptBytes.Count + (0x8 * (uint)classVars[i].Count))));
+                    uint methodPointerOffset = (uint)scriptBytes.Count;
+                    scriptBytes.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
                     scriptBytes.AddRange(BitConverter.GetBytes(ReverseBytes((uint)classVars[i].Count)));
+                    uint varListOffset = (uint)scriptBytes.Count;
                     for (int v = 0; v < classVars[i].Count; v++)
                     {
-                        scriptBytes.AddRange(BitConverter.GetBytes(ReverseBytes((uint)scriptBytes.Count + 0x4 + (0x4 * ((uint)v + 1)))));
+                        scriptBytes.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
                     }
                     for (int v = 0; v < classVars[i].Count; v++)
                     {
@@ -994,6 +996,13 @@ namespace RDLMINT
                         classVarTypeOffsets[i].Add((uint)scriptBytes.Count);
                         scriptBytes.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
                     }
+                    for (int v = 0; v < classVars[i].Count; v++)
+                    {
+                        scriptBytes.RemoveRange((int)varListOffset + (0x4 * v), 0x4);
+                        scriptBytes.InsertRange((int)varListOffset + (0x4 * v), BitConverter.GetBytes(ReverseBytes((uint)classVarNameOffsets[i][v])));
+                    }
+                    scriptBytes.RemoveRange((int)methodPointerOffset, 0x4);
+                    scriptBytes.InsertRange((int)methodPointerOffset, BitConverter.GetBytes(ReverseBytes((uint)scriptBytes.Count + 0x4)));
                     scriptBytes.AddRange(BitConverter.GetBytes(ReverseBytes((uint)classMethods[i].Count)));
                     for (int m = 0; m < classMethods[i].Count; m++)
                     {
@@ -1025,7 +1034,7 @@ namespace RDLMINT
                 for (int i = 0; i < xref.Count; i++)
                 {
                     scriptBytes.RemoveRange((int)xrefOffsets[i], 0x4);
-                    scriptBytes.InsertRange((int)xrefOffsets[i], BitConverter.GetBytes(ReverseBytes((uint)scriptBytes.Count)));
+                    scriptBytes.InsertRange((int)xrefOffsets[i], BitConverter.GetBytes(ReverseBytes((uint)scriptBytes.Count + 0x4)));
                     scriptBytes.AddRange(BitConverter.GetBytes(ReverseBytes((uint)xref[i].Length)));
                     scriptBytes.AddRange(Encoding.UTF8.GetBytes(xref[i]));
                     scriptBytes.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
@@ -1078,6 +1087,7 @@ namespace RDLMINT
                         scriptBytes.InsertRange((int)classMethodNameOffsets[i][m], BitConverter.GetBytes(ReverseBytes((uint)scriptBytes.Count + 0x4)));
                         scriptBytes.AddRange(BitConverter.GetBytes(ReverseBytes(classMethodNames[i][m].Length)));
                         scriptBytes.AddRange(Encoding.UTF8.GetBytes(classMethodNames[i][m]));
+                        scriptBytes.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
                         while ((scriptBytes.Count).ToString("X").Last() != '0' && (scriptBytes.Count).ToString("X").Last() != '4' && (scriptBytes.Count).ToString("X").Last() != '8' && (scriptBytes.Count).ToString("X").Last() != 'C')
                         {
                             scriptBytes.Add(0x00);
