@@ -581,7 +581,7 @@ namespace RDLMINT
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
                 };
                 string scriptName = mintScript[0].Split(' ')[1];
-                //Console.WriteLine("Compiling " + scriptName);
+                Console.WriteLine("Compiling " + scriptName);
 
                 //cmd prep
 
