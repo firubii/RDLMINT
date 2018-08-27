@@ -158,6 +158,9 @@ namespace RDLMINT
                                 archive.RemoveRange(0x18 + (i * 0x8), 0x4);
                                 archive.InsertRange(0x18 + (i * 0x8), BitConverter.GetBytes(ReverseBytes(scriptOffsets[i])));
                             }
+                            archive.RemoveRange(0x8, 0x4);
+                            archive.InsertRange(0x8, BitConverter.GetBytes(ReverseBytes(archive.Count + 0x4)));
+
                             File.WriteAllBytes(Directory.GetCurrentDirectory() + "\\compiled_Archive.bin", archive.ToArray());
                             Console.WriteLine($"Finished packing folder {filepath} to {Directory.GetCurrentDirectory() + "\\compiled_Archive.bin"}");
                         }
