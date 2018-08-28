@@ -12,7 +12,7 @@ namespace RDLMINT
     {
         public static List<string> opcodeNames = new List<string>()
         {
-            "00", "setTrue", "setFalse", "load", "loadString", "moveRegister", "moveResult", "setArg", "08", "getStatic", "loadDeref", "sizeOf", "storeDeref", "storeStatic", "addi", "subi", "multi", "divi", "modi", "inci", "deci", "negi", "addf", "subf", "multif", "divf", "incf", "decf", "negf", "intLess", "intLessOrEqual", "intEqual", "intNotEqual", "floatLess", "floatLessOrEqual", "floatEqual", "floatNotEqual", "cmpLess", "cmpLessOrEqual", "boolEqual", "boolNotEqual", "bitAnd", "bitOr", "bitXor", "nti", "not", "slli", "slr", "jump", "jumpIfEqual", "jumpIfNotEqual", "declare", "return", "returnVal", "call", "yield", "copy", "zero", "new", "sppshz", "del", "getField", "makeArray", "arrayIndex", "arrayLength", "deleteArray"
+            "00", "setTrue", "setFalse", "load", "loadString", "moveRegister", "moveResult", "setArg", "08", "getStatic", "loadDeref", "sizeOf", "storeDeref", "storeStatic", "addi", "subi", "multi", "divi", "modi", "inci", "deci", "negi", "addf", "subf", "multf", "divf", "incf", "decf", "negf", "intLess", "intLessOrEqual", "intEqual", "intNotEqual", "floatLess", "floatLessOrEqual", "floatEqual", "floatNotEqual", "cmpLess", "cmpLessOrEqual", "boolEqual", "boolNotEqual", "bitAnd", "bitOr", "bitXor", "nti", "not", "slli", "slr", "jump", "jumpIfEqual", "jumpIfNotEqual", "declare", "return", "returnVal", "call", "yield", "copy", "zero", "new", "sppshz", "del", "getField", "makeArray", "arrayIndex", "arrayLength", "deleteArray"
         };
 
         static void Main(string[] args)
@@ -203,35 +203,22 @@ namespace RDLMINT
             if (sdataSize != 0)
             {
                 sdata.AddRange(mintScript.Skip(0x2C).Take((int)sdataSize));
-                string sdataString = "    SDATA { ";
-                for (int i = 0; i < sdata.Count; i++)
-                {
-                    sdataString += "0x" + sdata[i].ToString("X2");
-                    if (i != sdata.Count - 1)
-                    {
-                        sdataString += ", ";
-                    }
-                }
-                sdataString.Remove(sdataString.Length - 2, 2);
-                sdataString += " }";
-                //scriptDecomp.Add(sdataString);
             }
             //xref decomp
-            if (ReverseBytes(BitConverter.ToUInt32(mintScript, (int)xrefStart)) > 0)
+            uint xrefCount = ReverseBytes(BitConverter.ToUInt32(mintScript, (int)xrefStart));
+            List<uint> xrefOffsets = new List<uint>();
+            if (xrefCount > 0)
             {
-                //scriptDecomp.Add("    XREF\n    {");
-                for (int i = 0; i < ReverseBytes(BitConverter.ToUInt32(mintScript, (int)xrefStart)); i++)
+                for (int i = (int)xrefStart + 0x4; i < (int)xrefStart + 0x4 + (xrefCount * 0x4); i+= 0x4)
                 {
-                    if (ReverseBytes(BitConverter.ToUInt32(mintScript, ((int)xrefStart + 4) + (i * 4))) != 0x0)
-                    {
-                        uint stringOffset = ReverseBytes(BitConverter.ToUInt32(mintScript, ((int)xrefStart + 4) + (i * 4))) + 4;
-                        uint stringLength = ReverseBytes(BitConverter.ToUInt32(mintScript, (int)stringOffset - 4));
-                        string xrefString = Encoding.UTF8.GetString(mintScript, (int)stringOffset, (int)stringLength);
-                        xref.Add(xrefString);
-                        //scriptDecomp.Add("        " + xrefString);
-                    }
+                    xrefOffsets.Add(ReverseBytes(BitConverter.ToUInt32(mintScript, i)));
                 }
-                //scriptDecomp.Add("    }");
+                for (int i = 0; i < xrefOffsets.Count; i++)
+                {
+                    uint stringLength = ReverseBytes(BitConverter.ToUInt32(mintScript, (int)xrefOffsets[i]));
+                    string xrefString = Encoding.UTF8.GetString(mintScript, (int)xrefOffsets[i] + 0x4, (int)stringLength);
+                    xref.Add(xrefString);
+                }
             }
             //class & method decomp
             uint classStartOffset = ReverseBytes(BitConverter.ToUInt32(mintScript, 0x20)) + 0x4;
@@ -293,7 +280,7 @@ namespace RDLMINT
                             }
                             else if (mintScript[b] == 0x03)
                             {
-                                line += $"load r{z}, 0x{ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), v)).ToString("X")}";
+                                line += $"load r{z}, 0x{ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), v)).ToString("X").ToLower()}";
                             }
                             else if (mintScript[b] == 0x04)
                             {
@@ -527,11 +514,11 @@ namespace RDLMINT
                             }
                             else if (mintScript[b] == 0x3A)
                             {
-                                line += $"new r{z}, r{xref[v]}";
+                                line += $"new r{z}, {xref[v]}";
                             }
                             else if (mintScript[b] == 0x3B)
                             {
-                                line += $"sppshz r{z}, r{x}";
+                                line += $"sppshz r{z}, {xref[v]}";
                             }
                             else if (mintScript[b] == 0x3C)
                             {
@@ -595,7 +582,7 @@ namespace RDLMINT
                     int spaceCount = 0;
                     for (int c = 0; c < line.Length; c++)
                     {
-                        if (line[c] == ' ')
+                        if (line[c] == ' ' || line[c] == '	')
                         {
                             spaceCount++;
                         }
@@ -620,6 +607,7 @@ namespace RDLMINT
                     }
                 }
                 int sdataLoadCurrent = 0;
+                List<byte[]> sdataArrays = new List<byte[]>();
                 for (int i = 0; i < mintScript.Length; i++)
                 {
                     string[] parsedLine = mintScript[i].Replace(",", "").Split(' ');
@@ -665,7 +653,7 @@ namespace RDLMINT
                         {
                             sdata32 = BitConverter.GetBytes(ReverseBytes(uint.Parse(parsedLine[2].Replace("0x", ""), System.Globalization.NumberStyles.HexNumber)));
                         }
-                        else if (parsedLine[2].EndsWith("f") || parsedLine[2].EndsWith(".0"))
+                        else if (parsedLine[2].EndsWith("f") || parsedLine[2].Contains("."))
                         {
                             byte[] floatBytes = BitConverter.GetBytes(float.Parse(parsedLine[2].Replace("f", "")));
                             sdata32 = new byte[] { floatBytes[3], floatBytes[2], floatBytes[1], floatBytes[0] };
@@ -674,15 +662,31 @@ namespace RDLMINT
                         {
                             sdata32 = BitConverter.GetBytes(ReverseBytes(uint.Parse(parsedLine[2])));
                         }
-                        sdata.AddRange(sdata32);
+                        bool inSdata = false;
+                        for (int b = 0; b < sdata.Count; b += 4)
+                        {
+                            try
+                            {
+                                if (sdata[b] == sdata32[0] && sdata[b + 1] == sdata32[1] && sdata[b + 2] == sdata32[2] && sdata[b + 3] == sdata32[3])
+                                {
+                                    sdataOffset = b;
+                                    inSdata = true;
+                                }
+                            }
+                            catch { }
+                        }
+                        if (!inSdata)
+                        {
+                            sdata.AddRange(sdata32);
+                        }
                         mintScript[i] = $"{parsedLine[0]} {parsedLine[1]}, {sdataOffset.ToString("X4")}";
                     }
                 }
                 if (sdata.Count > 0)
                 {
-                    while ((sdata.Count - 1).ToString("X").Last() != '0' && (sdata.Count - 1).ToString("X").Last() != '4' && (sdata.Count - 1).ToString("X").Last() != '8' && (sdata.Count - 1).ToString("X").Last() != 'C')
+                    while (sdata.Count.ToString("X").Last() != '0' && sdata.Count.ToString("X").Last() != '4' && sdata.Count.ToString("X").Last() != '8' && sdata.Count.ToString("X").Last() != 'C')
                     {
-                        sdata.RemoveAt(sdata.Count - 1);
+                        sdata.Add(0x00);
                     }
                 }
 
@@ -692,25 +696,29 @@ namespace RDLMINT
                 List<uint> xrefNameOffsets = new List<uint>();
                 for (int i = 0; i < mintScript.Length; i++)
                 {
-                    string[] parsedLine = mintScript[i].Replace(",", "").Split(' ');
+                    string[] parsedLine = mintScript[i].Split(' ');
                     string line = mintScript[i];
+                    string xrefString = line;
                     int index = 0;
                     if (parsedLine[0] == "call")
                     {
-                        if (!xref.Contains(parsedLine[1]))
+                        xrefString = xrefString.Remove(0, 5);
+                        if (!xref.Contains(xrefString))
                         {
-                            xref.Add(parsedLine[1]);
+                            xref.Add(xrefString);
                         }
-                        index = xref.IndexOf(parsedLine[1]);
+                        index = xref.IndexOf(xrefString);
                         line = $"{parsedLine[0]} {index.ToString("X4")}";
                     }
-                    else if (parsedLine[0] == "new" || parsedLine[0] == "del" || parsedLine[0] == "getField" || parsedLine[0] == "getStatic" || parsedLine[0] == "storeStatic" || parsedLine[0] == "sizeOf")
+                    else if (parsedLine[0] == "new" || parsedLine[0] == "del" || parsedLine[0] == "getField" || parsedLine[0] == "getStatic" || parsedLine[0] == "storeStatic" || parsedLine[0] == "sizeOf" || parsedLine[0] == "sppshz")
                     {
-                        if (!xref.Contains(parsedLine[2]))
+                        xrefString = xrefString.Replace("new r", "").Replace("del r", "").Replace("getField r", "").Replace("getStatic r", "").Replace("storeStatic r", "").Replace("sizeOf r", "").Replace("sppshz r", "");
+                        xrefString = xrefString.Remove(0, 4);
+                        if (!xref.Contains(xrefString))
                         {
-                            xref.Add(parsedLine[2]);
+                            xref.Add(xrefString);
                         }
-                        index = xref.IndexOf(parsedLine[2]);
+                        index = xref.IndexOf(xrefString);
                         line = $"{parsedLine[0]} {parsedLine[1]}, {index.ToString("X4")}";
                     }
                     mintScript[i] = line;
@@ -740,7 +748,7 @@ namespace RDLMINT
                             string[] classLine = mintScript[l].Replace(",", "").Split(' ');
                             if (!readingMethod)
                             {
-                                if (mintScript[l].StartsWith("int") || mintScript[l].StartsWith("string") || mintScript[l].StartsWith("bool") || mintScript[l].StartsWith("void"))
+                                if (mintScript[l].StartsWith("int ") || mintScript[l].StartsWith("string ") || mintScript[l].StartsWith("bool ") || mintScript[l].StartsWith("void "))
                                 {
                                     if (mintScript[l].EndsWith("{") || mintScript[l + 1].EndsWith("{"))
                                     {
@@ -816,7 +824,6 @@ namespace RDLMINT
                                             case "nti":
                                             case "not":
                                             case "declare":
-                                            case "sppshz":
                                             case "arrayIndex":
                                             case "arrayLength":
                                                 {
@@ -879,6 +886,7 @@ namespace RDLMINT
                                             case "new":
                                             case "del":
                                             case "getField":
+                                            case "sppshz":
                                                 {
                                                     byte[] v = BitConverter.GetBytes(ushort.Parse(classLine[2], System.Globalization.NumberStyles.HexNumber));
                                                     method.Add((byte)opcodeNames.IndexOf(classLine[0]));
