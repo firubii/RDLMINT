@@ -748,7 +748,7 @@ namespace RDLMINT
                             string[] classLine = mintScript[l].Replace(",", "").Split(' ');
                             if (!readingMethod)
                             {
-                                if (mintScript[l].StartsWith("int ") || mintScript[l].StartsWith("string ") || mintScript[l].StartsWith("bool ") || mintScript[l].StartsWith("void "))
+                                if (mintScript[l].StartsWith("int ") || mintScript[l].StartsWith("string ") || mintScript[l].StartsWith("bool ") || mintScript[l].StartsWith("void ") || mintScript[l].StartsWith("float "))
                                 {
                                     if (mintScript[l].EndsWith("{") || mintScript[l + 1].EndsWith("{"))
                                     {
