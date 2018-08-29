@@ -270,281 +270,154 @@ namespace RDLMINT
                             short v = BitConverter.ToInt16(new byte[] { mintScript[b + 3], mintScript[b + 2] }, 0);
                             string line = "            ";
                             //opcodes
-                            if (mintScript[b] == 0x01)
+                            line += opcodeNames[mintScript[b]];
+                            switch (mintScript[b])
                             {
-                                line += $"setTrue r{z}";
-                            }
-                            else if (mintScript[b] == 0x02)
-                            {
-                                line += $"setFalse r{z}";
-                            }
-                            else if (mintScript[b] == 0x03)
-                            {
-                                line += $"load r{z}, 0x{ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), v)).ToString("X").ToLower()}";
-                            }
-                            else if (mintScript[b] == 0x04)
-                            {
-                                string sdataString = "";
-                                List<byte> stringBytes = new List<byte>();
-                                for (short s = v; s < sdata.Count; s++)
-                                {
-                                    if (sdata[s] != 0x00)
+                                case 0x01:
+                                case 0x02:
+                                    line += $" r{z}";
+                                    break;
+                                case 0x03:
+                                    line += $" r{z}, 0x{ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), v)).ToString("X").ToLower()}";
+                                    break;
+                                case 0x04:
+                                    string sdataString = "";
+                                    List<byte> stringBytes = new List<byte>();
+                                    for (short s = v; s < sdata.Count; s++)
                                     {
-                                        stringBytes.Add(sdata[s]);
+                                        if (sdata[s] != 0x00)
+                                        {
+                                            stringBytes.Add(sdata[s]);
+                                        }
+                                        else
+                                        {
+                                            sdataString = Encoding.UTF8.GetString(stringBytes.ToArray());
+                                            break;
+                                        }
                                     }
-                                    else
-                                    {
-                                        sdataString = Encoding.UTF8.GetString(stringBytes.ToArray());
-                                        break;
-                                    }
-                                }
-                                line += $"loadString r{z}, \"{sdataString}\"";
-                            }
-                            else if (mintScript[b] == 0x05)
-                            {
-                                line += $"moveRegister r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x06)
-                            {
-                                line += $"moveResult r{z}";
-                            }
-                            else if (mintScript[b] == 0x07)
-                            {
-                                line += $"setArg [{z}] r{x}";
-                            }
-                            else if (mintScript[b] == 0x09)
-                            {
-                                line += $"getStatic r{z}, {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x0A)
-                            {
-                                line += $"loadDeref r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x0B)
-                            {
-                                line += $"sizeOf r{z}, {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x0C)
-                            {
-                                line += $"storeDeref r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x0D)
-                            {
-                                line += $"storeStatic r{z}, {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x0E)
-                            {
-                                line += $"addi r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x0F)
-                            {
-                                line += $"subi r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x10)
-                            {
-                                line += $"multi r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x11)
-                            {
-                                line += $"divi r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x12)
-                            {
-                                line += $"modi r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x13)
-                            {
-                                line += $"inci r{z}";
-                            }
-                            else if (mintScript[b] == 0x14)
-                            {
-                                line += $"deci r{z}";
-                            }
-                            else if (mintScript[b] == 0x15)
-                            {
-                                line += $"negi r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x16)
-                            {
-                                line += $"addf r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x17)
-                            {
-                                line += $"subf r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x18)
-                            {
-                                line += $"multf r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x19)
-                            {
-                                line += $"divf r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x1A)
-                            {
-                                line += $"incf r{z}";
-                            }
-                            else if (mintScript[b] == 0x1B)
-                            {
-                                line += $"decf r{z}";
-                            }
-                            else if (mintScript[b] == 0x1C)
-                            {
-                                line += $"negf r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x1D)
-                            {
-                                line += $"intLess r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x1E)
-                            {
-                                line += $"intLessOrEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x1F)
-                            {
-                                line += $"intEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x20)
-                            {
-                                line += $"intNotEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x21)
-                            {
-                                line += $"floatLess r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x22)
-                            {
-                                line += $"floatLessOrEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x23)
-                            {
-                                line += $"floatEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x24)
-                            {
-                                line += $"floatNotEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x25)
-                            {
-                                line += $"cmpLess r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x25)
-                            {
-                                line += $"cmpLessOrEqual r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x27)
-                            {
-                                line += $"boolEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x28)
-                            {
-                                line += $"boolNotEqual r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x29)
-                            {
-                                line += $"bitAnd r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x2A)
-                            {
-                                line += $"bitOr r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x2B)
-                            {
-                                line += $"bitXor r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x2C)
-                            {
-                                line += $"nti r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x2D)
-                            {
-                                line += $"not r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x2E)
-                            {
-                                line += $"slli r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x2F)
-                            {
-                                line += $"slr r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x30)
-                            {
-                                line += $"jump {v}";
-                            }
-                            else if (mintScript[b] == 0x31)
-                            {
-                                line += $"jumpIfEqual {v}, r{z}";
-                            }
-                            else if (mintScript[b] == 0x32)
-                            {
-                                line += $"jumpIfNotEqual {v}, r{z}";
-                            }
-                            else if (mintScript[b] == 0x33)
-                            {
-                                line += $"declare {z}, {x}";
-                            }
-                            else if (mintScript[b] == 0x34)
-                            {
-                                line += $"return";
-                                scriptDecomp.Add(line);
-                                break;
-                            }
-                            else if (mintScript[b] == 0x35)
-                            {
-                                line += $"returnVal r{x}";
-                                scriptDecomp.Add(line);
-                                break;
-                            }
-                            else if (mintScript[b] == 0x36)
-                            {
-                                line += $"call {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x37)
-                            {
-                                line += $"yield r{z}";
-                            }
-                            else if (mintScript[b] == 0x38)
-                            {
-                                line += $"copy r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x39)
-                            {
-                                line += $"zero r{z}, r{x}, r{y}";
-                            }
-                            else if (mintScript[b] == 0x3A)
-                            {
-                                line += $"new r{z}, {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x3B)
-                            {
-                                line += $"sppshz r{z}, {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x3C)
-                            {
-                                line += $"del r{z}, {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x3D)
-                            {
-                                line += $"getField r{z}, {xref[v]}";
-                            }
-                            else if (mintScript[b] == 0x3E)
-                            {
-                                line += $"makeArray r{z}";
-                            }
-                            else if (mintScript[b] == 0x3F)
-                            {
-                                line += $"arrayIndex r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x40)
-                            {
-                                line += $"arrayLength r{z}, r{x}";
-                            }
-                            else if (mintScript[b] == 0x41)
-                            {
-                                line += $"deleteArray r{z}";
+                                    line += $" r{z}, \"{sdataString}\"";
+                                    break;
+                                case 0x05:
+                                    line += $" r{z}, r{x}";
+                                    break;
+                                case 0x06:
+                                    line += $" r{z}";
+                                    break;
+                                case 0x07:
+                                    line += $" [{z}] r{x}";
+                                    break;
+                                case 0x09:
+                                    line += $" r{z}, {xref[v]}";
+                                    break;
+                                case 0x0a:
+                                    line += $" r{z}, r{x}";
+                                    break;
+                                case 0x0b:
+                                    line += $" r{z}, {xref[v]}";
+                                    break;
+                                case 0x0c:
+                                    line += $" r{z}, r{x}";
+                                    break;
+                                case 0x0d:
+                                    line += $" r{z}, {xref[v]}";
+                                    break;
+                                case 0x0e:
+                                case 0x0f:
+                                case 0x10:
+                                case 0x11:
+                                case 0x12:
+                                    line += $" r{z}, r{x}, r{y}";
+                                    break;
+                                case 0x13:
+                                case 0x14:
+                                    line += $" r{z}";
+                                    break;
+                                case 0x15:
+                                    line += $" r{z}, r{x}";
+                                    break;
+                                case 0x16:
+                                case 0x17:
+                                case 0x18:
+                                case 0x19:
+                                    line += $" r{z}, r{x}, r{y}";
+                                    break;
+                                case 0x1a:
+                                case 0x1b:
+                                    line += $" r{z}";
+                                    break;
+                                case 0x1c:
+                                case 0x1d:
+                                case 0x1e:
+                                case 0x1f:
+                                case 0x20:
+                                case 0x21:
+                                case 0x22:
+                                case 0x23:
+                                case 0x24:
+                                    line += $" r{z}, r{x}, r{y}";
+                                    break;
+                                case 0x25:
+                                case 0x26:
+                                    line += $" r{z}, r{x}";
+                                    break;
+                                case 0x27:
+                                case 0x28:
+                                case 0x29:
+                                case 0x2a:
+                                case 0x2b:
+                                    line += $" r{z}, r{x}, r{y}";
+                                    break;
+                                case 0x2c:
+                                case 0x2d:
+                                    line += $" r{z}, r{x}";
+                                    break;
+                                case 0x2e:
+                                case 0x2f:
+                                    line += $" r{z}, r{x}, r{y}";
+                                    break;
+                                case 0x30:
+                                    line += $" {v}";
+                                    break;
+                                case 0x31:
+                                case 0x32:
+                                    line += $" {v}, r{z}";
+                                    break;
+                                case 0x33:
+                                    line += $" {z}, {x}";
+                                    break;
+                                case 0x35:
+                                    line += $" r{x}";
+                                    break;
+                                case 0x36:
+                                    line += $" {xref[v]}";
+                                    break;
+                                case 0x37:
+                                    line += $" r{z}";
+                                    break;
+                                case 0x38:
+                                case 0x39:
+                                    line += $" r{z}, r{x}, r{y}";
+                                    break;
+                                case 0x3a:
+                                case 0x3b:
+                                case 0x3c:
+                                case 0x3d:
+                                    line += $" r{z}, {xref[v]}";
+                                    break;
+                                case 0x3e:
+                                    line += $" r{z}";
+                                    break;
+                                case 0x3f:
+                                case 0x40:
+                                    line += $" r{z}, r{x}";
+                                    break;
+                                case 0x41:
+                                    line += $" r{z}";
+                                    break;
                             }
                             scriptDecomp.Add(line);
+                            if (mintScript[b] == 0x34 || mintScript[b] == 0x35)
+                                break;
                         }
                         catch
                         {
