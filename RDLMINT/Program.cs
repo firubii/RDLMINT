@@ -448,7 +448,7 @@ namespace RDLMINT
 
                 //cmd prep
 
-                //remove indentions
+                //prep script
                 for (int i = 0; i < mintScript.Length; i++)
                 {
                     string line = mintScript[i];
@@ -461,6 +461,17 @@ namespace RDLMINT
                         }
                         else
                         {
+                            break;
+                        }
+                    }
+                    for (int c = 0; c < line.Length; c++)
+                    {
+                        if (line[c] == '#')
+                        {
+                            for (int t = c; t < line.Length; t++)
+                            {
+                                line = line.Remove(t);
+                            }
                             break;
                         }
                     }
@@ -576,6 +587,7 @@ namespace RDLMINT
                     if (parsedLine[0] == "call")
                     {
                         xrefString = xrefString.Remove(0, 5);
+                        xrefString = xrefString.TrimEnd(new char[] { ' ' });
                         if (!xref.Contains(xrefString))
                         {
                             xref.Add(xrefString);
@@ -587,6 +599,7 @@ namespace RDLMINT
                     {
                         xrefString = xrefString.Replace("new r", "").Replace("del r", "").Replace("getField r", "").Replace("getStatic r", "").Replace("storeStatic r", "").Replace("sizeOf r", "").Replace("sppshz r", "");
                         xrefString = xrefString.Remove(0, 4);
+                        xrefString = xrefString.TrimEnd(new char[] { ' ' });
                         if (!xref.Contains(xrefString))
                         {
                             xref.Add(xrefString);
@@ -789,9 +802,16 @@ namespace RDLMINT
                                                 }
                                             default:
                                                 {
-                                                    Console.WriteLine($"Error: Unknown command \"{classLine[0]}\" at line {l + 1}\nStopping.");
-                                                    Thread.Sleep(2000);
-                                                    return null;
+                                                    if (mintScript[l] == "")
+                                                    {
+                                                        break;
+                                                    }
+                                                    else
+                                                    {
+                                                        Console.WriteLine($"Error: Unknown command \"{classLine[0]}\" at line {l + 1}\nStopping.");
+                                                        Thread.Sleep(2000);
+                                                        return null;
+                                                    }
                                                 }
                                         }
                                         //Console.WriteLine(outputLog);

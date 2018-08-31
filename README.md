@@ -6,7 +6,8 @@ A WIP (dis)assembler for Kirby's Return to Dream Land's MINT bytecode
 * Can recompile and repack MINT XBIN scripts
 
 ## Credits
-* FruitMage - Programming and stuff
+* FruitMage - Programming
+* BenHall - Programming
 * Fireyfly - Opcode research and documentation, created MINT Explorer (was used as reference)
 * Reserved - XBIN/MINT research
 * DarkKirb - Official Opcode names, functions, and research
