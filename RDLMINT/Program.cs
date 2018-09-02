@@ -295,7 +295,6 @@ namespace RDLMINT
                                 case 0x14:
                                 case 0x1A:
                                 case 0x1B:
-                                case 0x35:
                                 case 0x37:
                                 case 0x3E:
                                 case 0x41:
@@ -406,6 +405,11 @@ namespace RDLMINT
                                     }
                                 case 0x34:
                                     {
+                                        break;
+                                    }
+                                case 0x35:
+                                    {
+                                        line += $" r{x}";
                                         break;
                                     }
                                 case 0x36:
