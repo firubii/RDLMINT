@@ -195,9 +195,10 @@ namespace RDLMINT
         {
             Console.WriteLine("Usage: RDLMINT.exe <action> [options]");
             Console.WriteLine("Actions:");
-            Console.WriteLine("    -x <file>:        Extract and decompile a MINT Archive or individual script");
-            Console.WriteLine("    -r <folder|file>: Repack and compile a MINT Archive from a folder or individual script");
-            Console.WriteLine("    -h:               Show this message");
+            Console.WriteLine("    -x <file>:          Extract and decompile a MINT Archive or individual script");
+            Console.WriteLine("    -r <folder|file>:   Repack and compile a MINT Archive from a folder or individual script");
+            Console.WriteLine("    -rdb <folder|file>: Repack and compile a MINT Archive from a folder or individual script (Debug comment printing)");
+            Console.WriteLine("    -h:                 Show this message");
             Console.WriteLine("\nOptions:");
             Console.WriteLine("    -f:   Decompiles or compiles a single provided MINT script");
         }
