@@ -19,7 +19,7 @@ namespace RDLMINT
         {
             string filepath;
             byte[] mintArchive;
-            //args = new string[] { "-r", "MINT\\User.Tsuruoka.MintTest.txt", "-f" };
+            //args = new string[] { "-rdb", "MINT\\User.Tsuruoka.MintTest.txt", "-f" };
             //args = new string[] { "-x", "Archive.bin" };
             if (args.Length > 0)
             {
@@ -83,8 +83,13 @@ namespace RDLMINT
                         Console.WriteLine("Error: File does not exist or no file provided");
                     }
                 }
-                else if (args[0] == "-r")
+                else if (args[0] == "-r" || args[0] == "-rdb")
                 {
+                    bool debug = false;
+                    if (args[0] == "-rdb")
+                    {
+                        debug = true;
+                    }
                     if (args.Contains("-f"))
                     {
                         filepath = args[1];
@@ -96,8 +101,16 @@ namespace RDLMINT
                                 Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\Compiled\");
                             }
                             Console.WriteLine("Compiling script " + filepath);
-                            File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\Compiled\" + filepath.Split('\\').Last().Replace(".txt",".bin"), CompileScript(mintScript, filepath.Split('\\').Last().Replace(".txt", "")));
-                            Console.WriteLine("Done!");
+                            byte[] compiledScript = CompileScript(mintScript, filepath.Split('\\').Last().Replace(".txt", ""), debug);
+                            if (compiledScript != null)
+                            {
+                                File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\Compiled\" + filepath.Split('\\').Last().Replace(".txt", ".bin"), compiledScript);
+                                Console.WriteLine("Done!");
+                            }
+                            else
+                            {
+                                return;
+                            }
                         }
                         else
                         {
@@ -120,10 +133,11 @@ namespace RDLMINT
                             List<uint> nameOffsets = new List<uint>();
                             for (int i = 0; i < files.Length; i++)
                             {
-                                if (CompileScript(File.ReadAllLines(files[i]), files[i].Split('\\').Last()) != null)
+                                byte[] compiledScript = CompileScript(File.ReadAllLines(files[i]), files[i].Split('\\').Last(), debug);
+                                if (compiledScript != null)
                                 {
                                     scriptNames.Add(files[i].Split('\\').Last().Replace(".txt", ""));
-                                    scripts.Add(CompileScript(File.ReadAllLines(files[i]), files[i].Split('\\').Last()));
+                                    scripts.Add(compiledScript);
                                 }
                                 else
                                 {
@@ -275,149 +289,141 @@ namespace RDLMINT
                             {
                                 case 0x01:
                                 case 0x02:
-                                    line += $" r{z}";
-                                    break;
-                                case 0x03:
-                                    line += $" r{z}, 0x{ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), v)).ToString("X").ToLower()}";
-                                    break;
-                                case 0x04:
-                                    string sdataString = "";
-                                    List<byte> stringBytes = new List<byte>();
-                                    for (short s = v; s < sdata.Count; s++)
-                                    {
-                                        if (sdata[s] != 0x00)
-                                        {
-                                            stringBytes.Add(sdata[s]);
-                                        }
-                                        else
-                                        {
-                                            sdataString = Encoding.UTF8.GetString(stringBytes.ToArray());
-                                            break;
-                                        }
-                                    }
-                                    line += $" r{z}, \"{sdataString}\"";
-                                    break;
-                                case 0x05:
-                                    line += $" r{z}, r{x}";
-                                    break;
                                 case 0x06:
-                                    line += $" r{z}";
-                                    break;
+                                case 0x13:
+                                case 0x14:
+                                case 0x1A:
+                                case 0x1B:
+                                case 0x35:
+                                case 0x37:
+                                case 0x3E:
+                                case 0x41:
+                                    {
+                                        line += $" r{z}";
+                                        break;
+                                    }
+                                case 0x03:
+                                    {
+                                        line += $" r{z}, 0x{ReverseBytes(BitConverter.ToUInt32(sdata.ToArray(), v)).ToString("X").ToLower()}";
+                                        break;
+                                    }
+                                case 0x04:
+                                    {
+                                        string sdataString = "";
+                                        List<byte> stringBytes = new List<byte>();
+                                        for (short s = v; s < sdata.Count; s++)
+                                        {
+                                            if (sdata[s] != 0x00)
+                                            {
+                                                stringBytes.Add(sdata[s]);
+                                            }
+                                            else
+                                            {
+                                                sdataString = Encoding.UTF8.GetString(stringBytes.ToArray());
+                                                break;
+                                            }
+                                        }
+                                        line += $" r{z}, \"{sdataString}\"";
+                                        break;
+                                    }
+                                case 0x05:
+                                case 0x0A:
+                                case 0x0C:
+                                case 0x15:
+                                case 0x1C:
+                                case 0x25:
+                                case 0x26:
+                                case 0x2C:
+                                case 0x2D:
+                                case 0x3F:
+                                case 0x40:
+                                    {
+                                        line += $" r{z}, r{x}";
+                                        break;
+                                    }
                                 case 0x07:
-                                    line += $" [{z}] r{x}";
-                                    break;
+                                    {
+                                        line += $" [{z}] r{x}";
+                                        break;
+                                    }
                                 case 0x09:
-                                    line += $" r{z}, {xref[v]}";
-                                    break;
-                                case 0x0a:
-                                    line += $" r{z}, r{x}";
-                                    break;
-                                case 0x0b:
-                                    line += $" r{z}, {xref[v]}";
-                                    break;
-                                case 0x0c:
-                                    line += $" r{z}, r{x}";
-                                    break;
-                                case 0x0d:
-                                    line += $" r{z}, {xref[v]}";
-                                    break;
-                                case 0x0e:
-                                case 0x0f:
+                                case 0x0B:
+                                case 0x0D:
+                                case 0x3A:
+                                case 0x3B:
+                                case 0x3C:
+                                case 0x3D:
+                                    {
+                                        line += $" r{z}, {xref[v]}";
+                                        break;
+                                    }
+                                case 0x0E:
+                                case 0x0F:
                                 case 0x10:
                                 case 0x11:
                                 case 0x12:
-                                    line += $" r{z}, r{x}, r{y}";
-                                    break;
-                                case 0x13:
-                                case 0x14:
-                                    line += $" r{z}";
-                                    break;
-                                case 0x15:
-                                    line += $" r{z}, r{x}";
-                                    break;
                                 case 0x16:
                                 case 0x17:
                                 case 0x18:
                                 case 0x19:
-                                    line += $" r{z}, r{x}, r{y}";
-                                    break;
-                                case 0x1a:
-                                case 0x1b:
-                                    line += $" r{z}";
-                                    break;
-                                case 0x1c:
-                                case 0x1d:
-                                case 0x1e:
-                                case 0x1f:
+                                case 0x1D:
+                                case 0x1E:
+                                case 0x1F:
                                 case 0x20:
                                 case 0x21:
                                 case 0x22:
                                 case 0x23:
                                 case 0x24:
-                                    line += $" r{z}, r{x}, r{y}";
-                                    break;
-                                case 0x25:
-                                case 0x26:
-                                    line += $" r{z}, r{x}";
-                                    break;
                                 case 0x27:
                                 case 0x28:
                                 case 0x29:
-                                case 0x2a:
-                                case 0x2b:
-                                    line += $" r{z}, r{x}, r{y}";
-                                    break;
-                                case 0x2c:
-                                case 0x2d:
-                                    line += $" r{z}, r{x}";
-                                    break;
-                                case 0x2e:
-                                case 0x2f:
-                                    line += $" r{z}, r{x}, r{y}";
-                                    break;
-                                case 0x30:
-                                    line += $" {v}";
-                                    break;
-                                case 0x31:
-                                case 0x32:
-                                    line += $" {v}, r{z}";
-                                    break;
-                                case 0x33:
-                                    line += $" {z}, {x}";
-                                    break;
-                                case 0x35:
-                                    line += $" r{x}";
-                                    break;
-                                case 0x36:
-                                    line += $" {xref[v]}";
-                                    break;
-                                case 0x37:
-                                    line += $" r{z}";
-                                    break;
+                                case 0x2A:
+                                case 0x2B:
+                                case 0x2E:
+                                case 0x2F:
                                 case 0x38:
                                 case 0x39:
-                                    line += $" r{z}, r{x}, r{y}";
-                                    break;
-                                case 0x3a:
-                                case 0x3b:
-                                case 0x3c:
-                                case 0x3d:
-                                    line += $" r{z}, {xref[v]}";
-                                    break;
-                                case 0x3e:
-                                    line += $" r{z}";
-                                    break;
-                                case 0x3f:
-                                case 0x40:
-                                    line += $" r{z}, r{x}";
-                                    break;
-                                case 0x41:
-                                    line += $" r{z}";
-                                    break;
+                                    {
+                                        line += $" r{z}, r{x}, r{y}";
+                                        break;
+                                    }
+                                case 0x30:
+                                    {
+                                        line += $" {v}";
+                                        break;
+                                    }
+                                case 0x31:
+                                case 0x32:
+                                    {
+                                        line += $" {v}, r{z}";
+                                        break;
+                                    }
+                                case 0x33:
+                                    {
+                                        line += $" {z}, {x}";
+                                        break;
+                                    }
+                                case 0x34:
+                                    {
+                                        break;
+                                    }
+                                case 0x36:
+                                    {
+                                        line += $" {xref[v]}";
+                                        break;
+                                    }
+                                default:
+                                    {
+                                        Console.WriteLine($"Error: Unknown command 0x{mintScript[b].ToString("X2")} at 0x{b.ToString("X8")} in script {fileName}\n    Full command: 0x{mintScript[b].ToString("X2")}{mintScript[b + 1].ToString("X2")}{mintScript[b + 2].ToString("X2")}{mintScript[b + 3].ToString("X2")}");
+                                        Thread.Sleep(2000);
+                                        break;
+                                    }
                             }
                             scriptDecomp.Add(line);
                             if (mintScript[b] == 0x34 || mintScript[b] == 0x35)
+                            {
                                 break;
+                            }
                         }
                         catch
                         {
@@ -433,7 +439,7 @@ namespace RDLMINT
             File.WriteAllLines(Directory.GetCurrentDirectory() + @"\MINT\" + fileName + ".txt", scriptDecomp.ToArray());
         }
 
-        public static byte[] CompileScript(string[] mintScript, string filename)
+        public static byte[] CompileScript(string[] mintScript, string filename, bool debug)
         {
             if (mintScript[0].Split(' ')[0] == "script")
             {
@@ -466,17 +472,125 @@ namespace RDLMINT
                     }
                     for (int c = 0; c < line.Length; c++)
                     {
-                        if (line[c] == '#')
+                        if (!debug)
                         {
-                            for (int t = c; t < line.Length; t++)
+                            if (line[c] == '/' && line[c + 1] == '#')
                             {
-                                line = line.Remove(t);
+                                for (int t = c; t < line.Length; t++)
+                                {
+                                    line = line.Remove(t);
+                                }
+                                break;
                             }
-                            break;
+                            if (line[c] == '#')
+                            {
+                                for (int t = c; t < line.Length; t++)
+                                {
+                                    line = line.Remove(t);
+                                }
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            if (line[c] == '#' && line[c - 1] != '/')
+                            {
+                                for (int t = c; t < line.Length; t++)
+                                {
+                                    line = line.Remove(t);
+                                }
+                                break;
+                            }
                         }
                     }
                     line = line.Remove(0, spaceCount);
                     mintScript[i] = line;
+                }
+                if (debug)
+                {
+                    int declareLine = 0;
+                    int registerCount = 0;
+                    bool increasedRegisters = false;
+                    for (int i = 0; i < mintScript.Length; i++)
+                    {
+                        string line = mintScript[i];
+                        if (line.StartsWith("declare "))
+                        {
+                            declareLine = i;
+                            increasedRegisters = false;
+                        }
+                        else if (line.StartsWith("/#"))
+                        {
+                            if (declareLine != 0)
+                            {
+                                if (!increasedRegisters)
+                                {
+                                    string[] parsedLine = mintScript[declareLine].Split(' ');
+                                    registerCount = (int.Parse(parsedLine[1].Replace(",", ""), System.Globalization.NumberStyles.HexNumber) + 1);
+                                    mintScript[declareLine] = $"{parsedLine[0]} {registerCount.ToString("X2")}, {parsedLine[2]}";
+                                    increasedRegisters = true;
+                                }
+                                line = line.Remove(0, 2);
+                                line = line.Insert(0, $"loadString r{(registerCount - 1).ToString("X2")}, \"");
+                                line += "\"";
+                                mintScript[i] = line;
+                                List<string> script = mintScript.ToList();
+                                script.Insert(i + 1, $"setArg [00] r{(registerCount - 1).ToString("X2")}");
+                                script.Insert(i + 2, "call Mint.Debug.puts(string)");
+                                mintScript = script.ToArray();
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            if (line.Contains("/#"))
+                            {
+                                if (declareLine != 0)
+                                {
+                                    if (!increasedRegisters)
+                                    {
+                                        Console.WriteLine(mintScript[declareLine]);
+                                        string[] parsedLine = mintScript[declareLine].Split(' ');
+                                        registerCount = (int.Parse(parsedLine[1].Replace(",", ""), System.Globalization.NumberStyles.HexNumber) + 1);
+                                        mintScript[declareLine] = $"{parsedLine[0]} {registerCount.ToString("X2")}, {parsedLine[2]}";
+                                        increasedRegisters = true;
+                                    }
+                                    string comment = "";
+                                    bool readComment = false;
+                                    for (int c = 0; c < line.Length; c++)
+                                    {
+                                        if (line[c] == '/' && line[c + 1] == '#')
+                                        {
+                                            readComment = true;
+                                        }
+                                        if (readComment)
+                                        {
+                                            comment += line[c];
+                                        }
+                                    }
+                                    comment = comment.Remove(0, 2);
+                                    for (int c = 0; c < line.Length; c++)
+                                    {
+                                        if (line[c] == '/' && line[c + 1] == '#')
+                                        {
+                                            for (int t = c; t < line.Length; t++)
+                                            {
+                                                line = line.Remove(t);
+                                            }
+                                            mintScript[i] = line;
+                                            break;
+                                        }
+                                    }
+                                    List<string> script = mintScript.ToList();
+                                    script.Insert(i, $"loadString r{(registerCount - 1).ToString("X2")}, \"{comment}\"");
+                                    script.Insert(i + 1, $"setArg [00] r{(registerCount - 1).ToString("X2")}");
+                                    script.Insert(i + 2, "call Mint.Debug.puts(string)");
+                                    mintScript = script.ToArray();
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 //sdata
@@ -705,6 +819,7 @@ namespace RDLMINT
                                             case "loadDeref":
                                             case "storeDeref":
                                             case "negi":
+                                            case "negf":
                                             case "cmpLess":
                                             case "cmpLessOrEqual":
                                             case "nti":
@@ -729,7 +844,6 @@ namespace RDLMINT
                                             case "subf":
                                             case "multf":
                                             case "divf":
-                                            case "negf":
                                             case "intLess":
                                             case "intLessOrEqual":
                                             case "intEqual":
