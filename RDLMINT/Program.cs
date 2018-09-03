@@ -19,7 +19,7 @@ namespace RDLMINT
         {
             string filepath;
             byte[] mintArchive;
-            //args = new string[] { "-rdb", "MINT\\User.Tsuruoka.MintTest.txt", "-f" };
+            //args = new string[] { "-rdb", "MINT\\User\\Tsuruoka\\MintTest.txt", "-f" };
             //args = new string[] { "-x", "Archive.bin" };
             if (args.Length > 0)
             {
@@ -27,18 +27,24 @@ namespace RDLMINT
                 {
                     if (args.Length > 1 && File.Exists(args[1]))
                     {
+                        bool noFolder = false;
+                        if (args.Contains("-nofolder"))
+                        {
+                            noFolder = true;
+                        }
                         if (args.Contains("-f"))
                         {
                             filepath = args[1];
                             byte[] mintScript = File.ReadAllBytes(filepath);
                             if (Encoding.UTF8.GetString(mintScript, 0, 4) == "XBIN")
                             {
-                                if (!Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\"))
+                                if (Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\"))
                                 {
-                                    Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\MINT\");
+                                    Directory.Delete(Directory.GetCurrentDirectory() + @"\MINT\", true);
                                 }
+                                Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\MINT\");
                                 Console.WriteLine("Decompiling script " + filepath);
-                                DecompileScript(mintScript, filepath.Split('\\').Last().Replace(".bin", ""));
+                                DecompileScript(mintScript, filepath.Split('\\').Last().Replace(".bin", ""), noFolder);
                             }
                             else
                             {
@@ -51,10 +57,11 @@ namespace RDLMINT
                             mintArchive = File.ReadAllBytes(filepath);
                             if (Encoding.UTF8.GetString(mintArchive, 0, 4) == "XBIN")
                             {
-                                if (!Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\"))
+                                if (Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\"))
                                 {
-                                    Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\MINT\");
+                                    Directory.Delete(Directory.GetCurrentDirectory() + @"\MINT\", true);
                                 }
+                                Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\MINT\");
                                 uint scriptCount = ReverseBytes(BitConverter.ToUInt32(mintArchive, 0x10));
                                 Console.WriteLine("Found " + scriptCount + " scripts");
                                 for (int i = 0; i < scriptCount; i++)
@@ -67,8 +74,11 @@ namespace RDLMINT
                                     List<byte> script = new List<byte>();
                                     uint scriptLength = ReverseBytes(BitConverter.ToUInt32(mintArchive, (int)fileOffset + 0x8));
                                     script.AddRange(mintArchive.Skip((int)fileOffset).Take((int)scriptLength));
-                                    File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\MINT\" + scriptName + ".bin", script.ToArray());
-                                    DecompileScript(script.ToArray(), scriptName);
+                                    if (args.Contains("-bin"))
+                                    {
+                                        File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\MINT\" + scriptName + ".bin", script.ToArray());
+                                    }
+                                    DecompileScript(script.ToArray(), scriptName, noFolder);
                                 }
                                 Console.WriteLine("Finished dumping scripts");
                             }
@@ -101,10 +111,11 @@ namespace RDLMINT
                                 Directory.CreateDirectory(Directory.GetCurrentDirectory() + @"\Compiled\");
                             }
                             Console.WriteLine("Compiling script " + filepath);
-                            byte[] compiledScript = CompileScript(mintScript, filepath.Split('\\').Last().Replace(".txt", ""), debug);
+                            string fileName = filepath.Replace(filepath + "\\", "").Replace("\\", ".").Replace(".txt", "");
+                            byte[] compiledScript = CompileScript(File.ReadAllLines(filepath), fileName, debug);
                             if (compiledScript != null)
                             {
-                                File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\Compiled\" + filepath.Split('\\').Last().Replace(".txt", ".bin"), compiledScript);
+                                File.WriteAllBytes(Directory.GetCurrentDirectory() + @"\Compiled\" + fileName + ".bin", compiledScript);
                                 Console.WriteLine("Done!");
                             }
                             else
@@ -120,7 +131,7 @@ namespace RDLMINT
                     else
                     {
                         filepath = args[1];
-                        string[] files = Directory.GetFiles(filepath, "*.txt");
+                        string[] files = Directory.GetFiles(filepath, "*.txt", SearchOption.AllDirectories);
                         if (files.Length > 0)
                         {
                             List<byte> archive = new List<byte>()
@@ -131,12 +142,14 @@ namespace RDLMINT
                             List<uint> scriptOffsets = new List<uint>();
                             List<string> scriptNames = new List<string>();
                             List<uint> nameOffsets = new List<uint>();
+                            Console.WriteLine("Compiling scripts...");
                             for (int i = 0; i < files.Length; i++)
                             {
-                                byte[] compiledScript = CompileScript(File.ReadAllLines(files[i]), files[i].Split('\\').Last(), debug);
+                                string fileName = files[i].Replace(filepath + "\\", "").Replace("\\", ".").Replace(".txt", "");
+                                byte[] compiledScript = CompileScript(File.ReadAllLines(files[i]), fileName, debug);
                                 if (compiledScript != null)
                                 {
-                                    scriptNames.Add(files[i].Split('\\').Last().Replace(".txt", ""));
+                                    scriptNames.Add(fileName);
                                     scripts.Add(compiledScript);
                                 }
                                 else
@@ -144,6 +157,7 @@ namespace RDLMINT
                                     return;
                                 }
                             }
+                            Console.WriteLine("Packing scripts...");
                             archive.AddRange(BitConverter.GetBytes(ReverseBytes((uint)scripts.Count)));
                             for (int i = 0; i < scripts.Count; i++)
                             {
@@ -200,10 +214,11 @@ namespace RDLMINT
             Console.WriteLine("    -rdb <folder|file>: Repack and compile a MINT Archive from a folder or individual script (Debug comment printing)");
             Console.WriteLine("    -h:                 Show this message");
             Console.WriteLine("\nOptions:");
-            Console.WriteLine("    -f:   Decompiles or compiles a single provided MINT script");
+            Console.WriteLine("    -f:        Decompiles or compiles a single provided MINT script");
+            Console.WriteLine("    -nofolder: For decompiling only; Decompiles the given MINT Archive to files instead of organizing by folders");
         }
 
-        public static void DecompileScript(byte[] mintScript, string fileName)
+        public static void DecompileScript(byte[] mintScript, string fileName, bool noFolder)
         {
             uint xrefStart = ReverseBytes(BitConverter.ToUInt32(mintScript, 0x1C));
             List<byte> sdata = new List<byte>();
@@ -441,6 +456,16 @@ namespace RDLMINT
                 scriptDecomp.Add("    }");
             }
             scriptDecomp.Add("}");
+            if (!noFolder)
+            {
+                if (!Directory.Exists(Directory.GetCurrentDirectory() + @"\MINT\" + fileName.Replace(".", "\\")))
+                {
+                    List<string> path = fileName.Split('.').ToList();
+                    path.RemoveAt(path.Count - 1);
+                    Directory.CreateDirectory((Directory.GetCurrentDirectory() + @"\MINT\" + string.Join("\\", path)));
+                }
+                fileName = fileName.Replace(".", "\\");
+            }
             File.WriteAllLines(Directory.GetCurrentDirectory() + @"\MINT\" + fileName + ".txt", scriptDecomp.ToArray());
         }
 
@@ -753,12 +778,12 @@ namespace RDLMINT
                             string[] classLine = mintScript[l].Replace(",", "").Split(' ');
                             if (!readingMethod)
                             {
-                                if (mintScript[l].StartsWith("int ") || mintScript[l].StartsWith("string ") || mintScript[l].StartsWith("bool ") || mintScript[l].StartsWith("void ") || mintScript[l].StartsWith("float "))
+                                if (mintScript[l].StartsWith("int ") || mintScript[l].StartsWith("string ") || mintScript[l].StartsWith("bool ") || mintScript[l].StartsWith("void ") || mintScript[l].StartsWith("float ") || mintScript[l].StartsWith("const "))
                                 {
                                     if (mintScript[l].EndsWith("{") || mintScript[l + 1].EndsWith("{"))
                                     {
                                         //Console.WriteLine($"Reading Method {mintScript[l]}");
-                                        methodNames.Add(mintScript[l]);
+                                        methodNames.Add(mintScript[l].Replace("{", ""));
                                         readingMethod = true;
                                         method = new List<byte>();
                                     }
