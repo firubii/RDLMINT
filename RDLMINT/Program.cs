@@ -764,21 +764,21 @@ namespace RDLMINT
                 for (int i = 0; i < mintScript.Length; i++)
                 {
                     string[] parsedLine = mintScript[i].Replace(",", "").Split(' ');
-                    if (parsedLine[0] == "class")
+                    if (mintScript[i].StartsWith("class "))
                     {
                         List<string> variables = new List<string>();
                         List<string> methodNames = new List<string>();
                         List<byte[]> methods = new List<byte[]>();
                         List<byte> method = new List<byte>();
                         //Console.WriteLine($"Reading Class {parsedLine[1]}");
-                        classNames.Add(parsedLine[1]);
+                        classNames.Add(mintScript[i].Replace("class ", ""));
                         bool readingMethod = false;
                         for (int l = i; l < mintScript.Length; l++)
                         {
                             string[] classLine = mintScript[l].Replace(",", "").Split(' ');
                             if (!readingMethod)
                             {
-                                if (mintScript[l].StartsWith("int ") || mintScript[l].StartsWith("string ") || mintScript[l].StartsWith("bool ") || mintScript[l].StartsWith("void ") || mintScript[l].StartsWith("float ") || mintScript[l].StartsWith("const "))
+                                if (!opcodeNames.Contains(classLine[0]) && !mintScript[l].StartsWith("class ") && !mintScript[l].StartsWith("script ") && !mintScript[l].StartsWith("{") && !mintScript[l].StartsWith("}"))
                                 {
                                     if (mintScript[l].EndsWith("{") || mintScript[l + 1].EndsWith("{"))
                                     {
@@ -793,7 +793,7 @@ namespace RDLMINT
                                         variables.Add(mintScript[l]);
                                     }
                                 }
-                                else if (mintScript[l] == "}")
+                                else if (mintScript[l].EndsWith("}"))
                                 {
                                     //Console.WriteLine($"Finished reading Class");
                                     break;
